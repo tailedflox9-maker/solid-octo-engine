@@ -1,4 +1,4 @@
-// trackingService.ts - UPDATED to use separate analytics client
+// trackingService.ts - ENHANCED with AI search tracking
 import { analyticsClient, isAnalyticsEnabled, safeAnalyticsOperation } from './analyticsClient';
 
 // ============================================
@@ -33,8 +33,23 @@ export interface AnalyticsSummary {
 export interface BusinessInteraction {
   event_type: 'view' | 'call' | 'whatsapp' | 'share';
   business_id: string;
+  business_name?: string;
   device_id: string;
   user_name?: string;
+}
+
+// NEW: AI Search Log Type
+export interface AiSearchLog {
+  device_id: string;
+  user_name?: string;
+  search_query: string;
+  ai_response_summary?: string;
+  businesses_found?: string[]; // Array of business IDs
+  businesses_count: number;
+  search_success: boolean;
+  model_used?: string;
+  response_time_ms?: number;
+  searched_at?: string;
 }
 
 // ============================================
@@ -86,6 +101,7 @@ const flushEvents = async () => {
     // Group events by table
     const businessInteractions = eventsToSend.filter(e => e.table === 'business_interactions');
     const visitLogs = eventsToSend.filter(e => e.table === 'visit_logs');
+    const aiSearchLogs = eventsToSend.filter(e => e.table === 'ai_search_logs');
     
     // Batch insert business interactions
     if (businessInteractions.length > 0 && analyticsClient) {
@@ -104,6 +120,15 @@ const flushEvents = async () => {
       
       if (error) console.error('Error inserting visit logs:', error);
     }
+    
+    // Batch insert AI search logs
+    if (aiSearchLogs.length > 0 && analyticsClient) {
+      const { error } = await analyticsClient
+        .from('ai_search_logs')
+        .insert(aiSearchLogs.map(e => e.data));
+      
+      if (error) console.error('Error inserting AI search logs:', error);
+    }
   }, undefined);
 };
 
@@ -113,11 +138,10 @@ const scheduleFlush = () => {
 };
 
 const queueEvent = (table: string, data: any) => {
-  if (!isAnalyticsEnabled) return; // Skip if analytics disabled
+  if (!isAnalyticsEnabled) return;
   
   eventQueue.push({ table, data });
   
-  // Flush immediately if queue is full
   if (eventQueue.length >= MAX_QUEUE_SIZE) {
     flushEvents();
   } else {
@@ -126,16 +150,73 @@ const queueEvent = (table: string, data: any) => {
 };
 
 // ============================================
+// AI SEARCH TRACKING - NEW
+// ============================================
+
+export const trackAiSearch = (
+  searchQuery: string,
+  aiResponseSummary: string,
+  businessesFound: string[], // Array of business IDs
+  modelUsed: string = 'gemini-1.5-flash',
+  responseTimeMs?: number
+) => {
+  queueEvent('ai_search_logs', {
+    device_id: getDeviceId(),
+    user_name: getUserName(),
+    search_query: searchQuery,
+    ai_response_summary: aiResponseSummary,
+    businesses_found: businessesFound,
+    businesses_count: businessesFound.length,
+    search_success: businessesFound.length > 0,
+    model_used: modelUsed,
+    response_time_ms: responseTimeMs,
+    searched_at: new Date().toISOString()
+  });
+};
+
+// Get popular searches
+export const getPopularSearches = async (limit: number = 20) => {
+  return safeAnalyticsOperation(async () => {
+    if (!analyticsClient) return [];
+    
+    const { data, error } = await analyticsClient
+      .from('popular_searches')
+      .select('*')
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
+  }, []);
+};
+
+// Get failed searches
+export const getFailedSearches = async (limit: number = 20) => {
+  return safeAnalyticsOperation(async () => {
+    if (!analyticsClient) return [];
+    
+    const { data, error } = await analyticsClient
+      .from('failed_searches')
+      .select('*')
+      .limit(limit);
+    
+    if (error) throw error;
+    return data || [];
+  }, []);
+};
+
+// ============================================
 // BUSINESS INTERACTION TRACKING
 // ============================================
 
 export const trackBusinessInteraction = (
   eventType: 'view' | 'call' | 'whatsapp' | 'share',
-  businessId: string
+  businessId: string,
+  businessName?: string
 ) => {
   queueEvent('business_interactions', {
     event_type: eventType,
     business_id: businessId,
+    business_name: businessName || null,
     device_id: getDeviceId(),
     user_name: getUserName(),
     created_at: new Date().toISOString()
@@ -148,33 +229,27 @@ export const getPopularBusinesses = async (limit: number = 10) => {
     if (!analyticsClient) return [];
     
     const { data, error } = await analyticsClient
-      .from('business_interactions')
-      .select('business_id, event_type')
-      .order('created_at', { ascending: false });
+      .from('interaction_stats')
+      .select('*')
+      .limit(limit);
     
     if (error) throw error;
+    return data || [];
+  }, []);
+};
+
+// Get conversion rates
+export const getConversionRates = async (limit: number = 15) => {
+  return safeAnalyticsOperation(async () => {
+    if (!analyticsClient) return [];
     
-    // Count interactions per business
-    const counts: Record<string, { views: number; calls: number; whatsapp: number; shares: number }> = {};
+    const { data, error } = await analyticsClient
+      .from('business_conversion_rates')
+      .select('*')
+      .limit(limit);
     
-    data?.forEach(item => {
-      if (!counts[item.business_id]) {
-        counts[item.business_id] = { views: 0, calls: 0, whatsapp: 0, shares: 0 };
-      }
-      counts[item.business_id][item.event_type]++;
-    });
-    
-    // Sort by total interactions
-    const sorted = Object.entries(counts)
-      .map(([businessId, stats]) => ({
-        business_id: businessId,
-        ...stats,
-        total: stats.views + stats.calls + stats.whatsapp + stats.shares
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, limit);
-    
-    return sorted;
+    if (error) throw error;
+    return data || [];
   }, []);
 };
 
@@ -183,47 +258,40 @@ export const getPopularBusinesses = async (limit: number = 10) => {
 // ============================================
 
 let pingInterval: NodeJS.Timeout | null = null;
-const PING_INTERVAL = 20000; // Ping every 20 seconds
-const ACTIVE_THRESHOLD = 60000; // Consider active if pinged within 60 seconds
-const MIN_ACTIVITY_GAP = 10000; // Don't ping if user inactive for 10+ seconds
+const PING_INTERVAL = 20000;
+const ACTIVE_THRESHOLD = 60000;
+const MIN_ACTIVITY_GAP = 10000;
 
-// Track user activity
 let lastActivity = Date.now();
 let isTabActive = true;
 
-// Listen for user activity
 ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(event => {
   document.addEventListener(event, () => {
     lastActivity = Date.now();
   }, { passive: true });
 });
 
-// Listen for tab visibility
 document.addEventListener('visibilitychange', () => {
   isTabActive = !document.hidden;
   if (isTabActive) lastActivity = Date.now();
 });
 
 export const startLiveTracking = async () => {
-  if (!isAnalyticsEnabled) return; // Skip if analytics disabled
+  if (!isAnalyticsEnabled) return;
   
   const deviceId = getDeviceId();
   const userName = getUserName();
   
-  // Send initial ping
   await sendPing(deviceId, userName);
   
-  // Set up periodic pings
   if (pingInterval) clearInterval(pingInterval);
   
   pingInterval = setInterval(() => {
     sendPing(deviceId, userName);
   }, PING_INTERVAL);
   
-  // Clean up on page unload
   window.addEventListener('beforeunload', () => {
     if (pingInterval) clearInterval(pingInterval);
-    // Send final ping with is_active = false
     if (isAnalyticsEnabled && analyticsClient) {
       navigator.sendBeacon(
         `${analyticsClient.supabaseUrl}/rest/v1/live_users`,
@@ -239,12 +307,8 @@ export const startLiveTracking = async () => {
 };
 
 const sendPing = async (deviceId: string, userName: string | null) => {
-  // Only ping if:
-  // 1. Tab is visible
-  // 2. User was active in last 10 seconds
-  // 3. Analytics is enabled
   if (!isTabActive || Date.now() - lastActivity > MIN_ACTIVITY_GAP || !isAnalyticsEnabled) {
-    return; // Skip ping
+    return;
   }
   
   await safeAnalyticsOperation(async () => {
@@ -283,74 +347,11 @@ export const getLiveUsersCount = async (): Promise<number> => {
 };
 
 // ============================================
-// TIME-BASED ANALYTICS
-// ============================================
-
-export const getHourlyStats = async (date?: string) => {
-  return safeAnalyticsOperation(async () => {
-    if (!analyticsClient) return [];
-    
-    const targetDate = date || new Date().toISOString().split('T')[0];
-    
-    const { data, error } = await analyticsClient
-      .from('visit_logs')
-      .select('visited_at')
-      .gte('visited_at', `${targetDate}T00:00:00`)
-      .lt('visited_at', `${targetDate}T23:59:59`);
-    
-    if (error) throw error;
-    
-    // Group by hour
-    const hourlyData: Record<number, number> = {};
-    for (let i = 0; i < 24; i++) hourlyData[i] = 0;
-    
-    data?.forEach(log => {
-      const hour = new Date(log.visited_at).getHours();
-      hourlyData[hour]++;
-    });
-    
-    return Object.entries(hourlyData).map(([hour, count]) => ({
-      hour: parseInt(hour),
-      visits: count
-    }));
-  }, []);
-};
-
-export const getDailyStats = async (days: number = 7) => {
-  return safeAnalyticsOperation(async () => {
-    if (!analyticsClient) return [];
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    
-    const { data, error } = await analyticsClient
-      .from('visit_logs')
-      .select('visited_at')
-      .gte('visited_at', startDate.toISOString());
-    
-    if (error) throw error;
-    
-    // Group by date
-    const dailyData: Record<string, number> = {};
-    
-    data?.forEach(log => {
-      const date = new Date(log.visited_at).toISOString().split('T')[0];
-      dailyData[date] = (dailyData[date] || 0) + 1;
-    });
-    
-    return Object.entries(dailyData)
-      .map(([date, count]) => ({ date, visits: count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, []);
-};
-
-// ============================================
-// ORIGINAL TRACKING FUNCTIONS (IMPROVED)
+// ORIGINAL TRACKING FUNCTIONS
 // ============================================
 
 export const trackUserVisit = async (userName: string): Promise<void> => {
   if (!isAnalyticsEnabled) {
-    // Still save name locally even if analytics disabled
     setUserName(userName);
     return;
   }
@@ -361,7 +362,6 @@ export const trackUserVisit = async (userName: string): Promise<void> => {
     const deviceId = getDeviceId();
     const userAgent = navigator.userAgent;
     
-    // Check if user already exists
     const { data: existingUser, error: fetchError } = await analyticsClient
       .from('user_tracking')
       .select('*')
@@ -373,7 +373,6 @@ export const trackUserVisit = async (userName: string): Promise<void> => {
     }
     
     if (existingUser) {
-      // Update existing user
       const { error: updateError } = await analyticsClient
         .from('user_tracking')
         .update({
@@ -387,7 +386,6 @@ export const trackUserVisit = async (userName: string): Promise<void> => {
         console.error('Error updating user:', updateError);
       }
     } else {
-      // Create new user
       const { error: insertError } = await analyticsClient
         .from('user_tracking')
         .insert([{
@@ -402,7 +400,6 @@ export const trackUserVisit = async (userName: string): Promise<void> => {
       }
     }
     
-    // Queue the visit log (batched)
     queueEvent('visit_logs', {
       device_id: deviceId,
       user_name: userName,
@@ -411,10 +408,7 @@ export const trackUserVisit = async (userName: string): Promise<void> => {
       visited_at: new Date().toISOString()
     });
     
-    // Save to localStorage
     setUserName(userName);
-    
-    // Start live tracking
     startLiveTracking();
   }, undefined);
 };
@@ -485,7 +479,6 @@ export const initializeTracking = async (): Promise<void> => {
     const userName = getUserName();
     
     if (userName) {
-      // Queue visit log (batched)
       queueEvent('visit_logs', {
         device_id: deviceId,
         user_name: userName,
@@ -494,7 +487,6 @@ export const initializeTracking = async (): Promise<void> => {
         visited_at: new Date().toISOString()
       });
       
-      // Update last visit time (no need to increment, trigger will handle it)
       await analyticsClient
         .from('user_tracking')
         .update({
@@ -502,13 +494,11 @@ export const initializeTracking = async (): Promise<void> => {
         })
         .eq('device_id', deviceId);
       
-      // Start live tracking
       startLiveTracking();
     }
   }, undefined);
 };
 
-// Clean up on page unload
 window.addEventListener('beforeunload', () => {
-  flushEvents(); // Flush any pending events
+  flushEvents();
 });
