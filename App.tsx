@@ -10,7 +10,8 @@ import {
   hasUserName,
   trackUserVisit,
   initializeTracking,
-  trackBusinessInteraction
+  trackBusinessInteraction,
+  trackAiSearch // Added this import
 } from './trackingService';
 
 // --- HELPER FUNCTIONS ---
@@ -60,6 +61,9 @@ const AiAssistant: React.FC<{
         setIsLoading(true);
         setError('');
         setResponse(null);
+
+        // Track start time for performance monitoring
+        const startTime = Date.now();
 
         const businessContext = businesses.map(b => ({
             id: b.id,
@@ -157,6 +161,23 @@ const AiAssistant: React.FC<{
 
             const parsedResponse = JSON.parse(jsonStr) as AiResult;
             setResponse(parsedResponse);
+
+            // --- TRACKING: AI SEARCH SUCCESS ---
+            const businessIds = parsedResponse.results
+                .filter(r => r.type === 'business' && r.businessId)
+                .map(r => r.businessId!);
+
+            const responseTime = Date.now() - startTime;
+
+            trackAiSearch(
+                query,
+                parsedResponse.summary,
+                businessIds,
+                modelName,
+                responseTime
+            );
+            // -----------------------------------
+
         } catch (err) {
             console.error("AI Chat Error:", err);
             
@@ -221,6 +242,11 @@ const AiAssistant: React.FC<{
                 : errorMessage;
             
             setError(fullError);
+
+            // --- TRACKING: AI SEARCH FAILURE ---
+            trackAiSearch(query, fullError, [], process.env.AI_MODEL || 'unknown', Date.now() - startTime);
+            // -----------------------------------
+
         } finally {
             setIsLoading(false);
         }
@@ -342,7 +368,9 @@ const BusinessDetailModal: React.FC<{
     useEffect(() => {
         if (business) {
             document.body.style.overflow = 'hidden';
-            trackBusinessInteraction('view', business.id);
+            // --- TRACKING: VIEW BUSINESS ---
+            trackBusinessInteraction('view', business.id, business.shopName);
+            // -------------------------------
         } else {
             document.body.style.overflow = 'unset';
         }
@@ -356,7 +384,9 @@ const BusinessDetailModal: React.FC<{
         if (!business) return;
         setIsSharing(true);
         
-        trackBusinessInteraction('share', business.id);
+        // --- TRACKING: SHARE BUSINESS ---
+        trackBusinessInteraction('share', business.id, business.shopName);
+        // --------------------------------
     
         const baseUrl = `${window.location.origin}${window.location.pathname}`;
         const shareUrl = `${baseUrl}?businessId=${business.id}`;
@@ -442,7 +472,9 @@ const BusinessDetailModal: React.FC<{
                 <main className="p-5 space-y-4 overflow-y-auto">
                     <a 
                         href={`tel:${business.contactNumber}`}
-                        onClick={() => trackBusinessInteraction('call', business.id)}
+                        // --- TRACKING: CALL ---
+                        onClick={() => trackBusinessInteraction('call', business.id, business.shopName)}
+                        // ----------------------
                         className="flex items-center gap-4 p-4 bg-surface rounded-lg shadow-subtle hover:shadow-card transition-shadow"
                     >
                         <i className="fas fa-phone text-2xl text-primary"></i>
@@ -492,7 +524,9 @@ const BusinessDetailModal: React.FC<{
                 <footer className="p-4 border-t border-border-color grid grid-cols-2 gap-3 bg-background/70">
                     <a 
                         href={`https://wa.me/91${business.contactNumber}?text=${encodeURIComponent('नमस्कार, मी "जवळा व्यवसाय निर्देशिका" वरून आपला संपर्क घेतला आहे.')}`}
-                        onClick={() => trackBusinessInteraction('whatsapp', business.id)}
+                        // --- TRACKING: WHATSAPP ---
+                        onClick={() => trackBusinessInteraction('whatsapp', business.id, business.shopName)}
+                        // --------------------------
                         target="_blank" 
                         rel="noopener noreferrer" 
                         className="w-full text-center py-3 rounded-lg transition-all flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold"
