@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>जवळा व्यवसाय निर्देशिका - Jawala Business Directory</title>
+    <meta name="description" content="जवळा गाव व्यवसाय निर्देशिका:गावातील व्यवसाय शोधण्यासाठी एक सुलभ साधन. आपल्या जवळच्या सेवा आणि व्यवसायांबद्दल त्वरित माहिती मिळवा.">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2C5F2D">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="जवळा व्यवसाय">
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- iOS Splash Screens & Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/jdlogo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/jdlogo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/jdlogo.png">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="जवळा व्यवसाय निर्देशिका - Jawala Business Directory">
+    <meta property="og:description" content="तुमच्या गावातील सर्व व्यवसाय, सेवा आणि संपर्क एकाच ठिकाणी!">
+    <meta property="og:image" content="/jdlogo.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="जवळा व्यवसाय निर्देशिका - Jawala Business Directory">
+    <meta property="twitter:description" content="तुमच्या गावातील सर्व व्यवसाय, सेवा आणि संपर्क एकाच ठिकाणी!">
+    <meta property="twitter:image" content="/jdlogo.png">
+
+    <link rel="icon" type="image/png" href="/jdlogo.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'background': '#F5F5F5',
+              'surface': '#FFFFFF',
+              'primary': '#2C5F2D',
+              'primary-dark': '#1a3d1b',
+              'secondary': '#97BC62',
+              'text-primary': '#333333',
+              'text-secondary': '#555555',
+              'border-color': '#E0E0E0',
+            },
+            fontFamily: {
+              'sans': ['Poppins', 'Noto Sans Devanagari', 'Inter', 'system-ui', 'sans-serif'],
+              'inter': ['Inter', 'sans-serif'],
+              'poppins': ['Poppins', 'sans-serif'],
+              'devanagari': ['Noto Sans Devanagari', 'sans-serif'],
+            },
+            boxShadow: {
+              'subtle': '0 4px 6px rgba(0,0,0,0.05)',
+              'card': '0 4px 10px rgba(0,0,0,0.1)',
+              'card-hover': '0 8px 15px rgba(0,0,0,0.1)',
+              'header': '0 8px 15px rgba(0,0,0,0.1)'
+            },
+            animation: {
+              fadeInUp: 'fadeInUp 0.6s ease-out forwards',
+            },
+            keyframes: {
+              fadeInUp: {
+                '0%': { opacity: '0', transform: 'translateY(15px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Poppins', 'Noto Sans Devanagari', 'Inter', system-ui, sans-serif;
+      }
+       *, *::before, *::after {
+        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+      }
+      .animate-fadeInUp {
+        animation-name: fadeInUp;
+        animation-duration: 0.6s;
+        animation-fill-mode: forwards;
+        opacity: 0;
+      }
+      /* Custom Scrollbar Styles */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #97BC62;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #2C5F2D;
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #97BC62 #f1f1f1;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+
+<!-- Service Worker Registration -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('✅ Service Worker registered:', registration.scope);
+          
+          // Check for updates
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New version available
+                if (confirm('नवीन आवृत्ती उपलब्ध आहे. अपडेट करायचे?')) {
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  window.location.reload();
+                }
+              }
+            });
+          });
+        })
+        .catch((error) => {
+          console.error('❌ Service Worker registration failed:', error);
+        });
+    });
+  }
+
+  // Install prompt
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    console.log('📱 PWA install prompt ready');
+  });
+
+  // Function to trigger install (call this from your app)
+  window.showInstallPrompt = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('✅ PWA installed');
+        }
+        deferredPrompt = null;
+      });
+    }
+  };
+</script>
+</head>
+<body class="bg-background text-text-primary antialiased">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    
+    <!-- Offline indicator -->
+    <div id="offline-indicator" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 25px; z-index: 9999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+      📴 तुम्ही ऑफलाइन आहात
+    </div>
+    
+    <script>
+      // Online/Offline indicator
+      function updateOnlineStatus() {
+        const indicator = document.getElementById('offline-indicator');
+        if (!navigator.onLine) {
+          indicator.style.display = 'block';
+        } else {
+          indicator.style.display = 'none';
+        }
+      }
+      
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus();
+    </script>
+</body>
+</html>
